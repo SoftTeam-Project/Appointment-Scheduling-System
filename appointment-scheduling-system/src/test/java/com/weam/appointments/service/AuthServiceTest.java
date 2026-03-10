@@ -14,6 +14,7 @@ class AuthServiceTest {
     @BeforeEach
     void setup() {
         System.setProperty("db.url", "jdbc:sqlite:test-db.sqlite");
+        new java.io.File("test-db.sqlite").delete();
         new SchemaInitializer().init();
         authService = new AuthService(new JdbcUserRepository());
     }
@@ -35,16 +36,17 @@ class AuthServiceTest {
 
     @Test
     void registerNewUserShouldReturnTrue() {
-    	String u = "rana_" + System.nanoTime();
-    	boolean created = authService.register(u, "123", "STUDENT");
-    	assertTrue(created);
-    	assertTrue(authService.login(u, "123"));
+        String u = "rana_" + System.nanoTime();
+        boolean created = authService.register(u, "123", "STUDENT");
+        assertTrue(created);
+        assertTrue(authService.login(u, "123"));
     }
 
     @Test
     void registerExistingUserShouldReturnFalse() {
-        authService.register("duplicate", "123", "STUDENT");
-        boolean secondAttempt = authService.register("duplicate", "123", "STUDENT");
+        String u = "duplicate_" + System.nanoTime();
+        assertTrue(authService.register(u, "123", "STUDENT"));
+        boolean secondAttempt = authService.register(u, "123", "STUDENT");
         assertFalse(secondAttempt);
     }
 
@@ -52,6 +54,7 @@ class AuthServiceTest {
     void logoutShouldNotThrowException() {
         assertDoesNotThrow(() -> authService.logout("admin"));
     }
+
     @Test
     void loginWithNullUsernameShouldReturnFalse() {
         assertFalse(authService.login(null, "123"));
@@ -61,17 +64,20 @@ class AuthServiceTest {
     void loginWithEmptyPasswordShouldReturnFalse() {
         assertFalse(authService.login("admin", ""));
     }
+
     @Test
     void addUserDuplicateShouldReturnFalse() {
         String u = "cov_test_" + System.nanoTime();
         assertTrue(authService.register(u, "123", "STUDENT"));
         assertFalse(authService.register(u, "456", "STUDENT"));
     }
+
     @Test
     void schemaInitShouldNotThrow() {
         SchemaInitializer schema = new SchemaInitializer();
         assertDoesNotThrow(schema::init);
     }
+
     @Test
     void addUserShouldReturnTrueWhenInserted() {
         JdbcUserRepository repo = new JdbcUserRepository();
@@ -79,5 +85,4 @@ class AuthServiceTest {
         boolean inserted = repo.addUser(u, "123", "STUDENT");
         assertTrue(inserted);
     }
-
 }
