@@ -1,27 +1,26 @@
 package com.weam.appointments.service;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.weam.appointments.persistence.UserRepository;
 
 public class AuthService {
 
-    private Map<String, String> users = new HashMap<>();
+    private final UserRepository userRepository;
 
-    public AuthService() {
-      
-        users.put("admin", "admin123");
-        users.put("student", "stud123");
+    public AuthService(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     public boolean login(String username, String password) {
-        if (!users.containsKey(username)) {
-            return false;
-        }
-        return users.get(username).equals(password);
+
+        return userRepository.findByUsername(username)
+                .map(user -> user.password().equals(password))
+                .orElse(false);
     }
 
     public void logout(String username) {
-      
         System.out.println(username + " logged out");
+    }
+    public boolean register(String username, String password, String role) {
+        return userRepository.addUser(username, password, role);
     }
 }
