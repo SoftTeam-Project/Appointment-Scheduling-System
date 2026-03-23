@@ -1,5 +1,6 @@
 package com.weam.appointments.presentation;
 
+import com.weam.appointments.notification.NotificationService;
 import com.weam.appointments.persistence.JdbcUserRepository;
 import com.weam.appointments.persistence.SchemaInitializer;
 import com.weam.appointments.service.AuthService;
@@ -13,12 +14,14 @@ import java.io.PrintStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CliAppTest {
+	 private NotificationService notificationService;
 
     @BeforeEach
     void setup() {
         System.setProperty("db.url", "jdbc:sqlite:test-db.sqlite");
         new java.io.File("test-db.sqlite").delete();
         new SchemaInitializer().init();
+        notificationService = new NotificationService();
     }
 
     @Test
@@ -29,7 +32,7 @@ class CliAppTest {
         PrintStream out = new PrintStream(outBytes);
 
         AuthService auth = new AuthService(new JdbcUserRepository());
-        CliApp app = new CliApp(auth, in, out);
+        CliApp app = new CliApp(auth,notificationService, in, out);
 
         app.runOnce();
 
@@ -40,13 +43,13 @@ class CliAppTest {
 
     @Test
     void validLoginShouldShowSuccessThenLogout() {
-        String input = "admin\nadmin123\n3\n";
+        String input = "admin\nadmin123\n4\n";
         ByteArrayInputStream in = new ByteArrayInputStream(input.getBytes());
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         PrintStream out = new PrintStream(outBytes);
 
         AuthService auth = new AuthService(new JdbcUserRepository());
-        CliApp app = new CliApp(auth, in, out);
+        CliApp app = new CliApp(auth,notificationService, in, out);
 
         app.runOnce();
 
@@ -56,10 +59,12 @@ class CliAppTest {
                 "Should show view slots option");
         assertTrue(output.contains("2) Book appointment"),
                 "Should show book appointment option");
-        assertTrue(output.contains("3) Logout"),
+        assertTrue(output.contains("3) Send reminders"),
+                "Should show send reminders option");
+        assertTrue(output.contains("4) Logout"),
                 "Should show logout option");
         assertTrue(output.toLowerCase().contains("logged out"),
-                "Should logout when choosing option 3");
+                "Should logout when choosing option 4");
     }
 
     @Test
@@ -70,7 +75,7 @@ class CliAppTest {
         PrintStream out = new PrintStream(outBytes);
 
         AuthService auth = new AuthService(new JdbcUserRepository());
-        CliApp app = new CliApp(auth, in, out);
+        CliApp app = new CliApp(auth,notificationService, in, out);
 
         app.runOnce();
 
@@ -81,13 +86,13 @@ class CliAppTest {
 
     @Test
     void viewAvailableSlotsShouldPrintSlots() {
-        String input = "admin\nadmin123\n1\n3\n";
+        String input = "admin\nadmin123\n1\n4\n";
         ByteArrayInputStream in = new ByteArrayInputStream(input.getBytes());
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         PrintStream out = new PrintStream(outBytes);
 
         AuthService auth = new AuthService(new JdbcUserRepository());
-        CliApp app = new CliApp(auth, in, out);
+        CliApp app = new CliApp(auth,notificationService, in, out);
 
         app.runOnce();
 
@@ -100,13 +105,13 @@ class CliAppTest {
 
     @Test
     void validBookingShouldPrintSuccess() {
-        String input = "admin\nadmin123\n2\n1\n60\n2\n3\n";
+        String input = "admin\nadmin123\n2\n1\n60\n2\n4\n";
         ByteArrayInputStream in = new ByteArrayInputStream(input.getBytes());
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         PrintStream out = new PrintStream(outBytes);
 
         AuthService auth = new AuthService(new JdbcUserRepository());
-        CliApp app = new CliApp(auth, in, out);
+        CliApp app = new CliApp(auth,notificationService, in, out);
 
         app.runOnce();
 
@@ -117,13 +122,13 @@ class CliAppTest {
 
     @Test
     void invalidBookingShouldPrintFailure() {
-        String input = "admin\nadmin123\n2\n1\n180\n2\n3\n";
+        String input = "admin\nadmin123\n2\n1\n180\n2\n4\n";
         ByteArrayInputStream in = new ByteArrayInputStream(input.getBytes());
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         PrintStream out = new PrintStream(outBytes);
 
         AuthService auth = new AuthService(new JdbcUserRepository());
-        CliApp app = new CliApp(auth, in, out);
+        CliApp app = new CliApp(auth,notificationService, in, out);
 
         app.runOnce();
 

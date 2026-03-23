@@ -4,8 +4,9 @@ import com.weam.appointments.domain.Appointment;
 import com.weam.appointments.domain.AppointmentSlot;
 import com.weam.appointments.persistence.AppointmentRepository;
 import com.weam.appointments.persistence.SlotRepository;
-
 import java.util.List;
+import java.util.Optional;
+
 
 public class BookingService {
 
@@ -38,15 +39,21 @@ public class BookingService {
         if (!isValidParticipants(participants)) {
             return false;
         }
-
+/*
         if (!isSlotAvailable(slotId)) {
             return false;
         }
-
+        */
+        Optional<AppointmentSlot> slotOpt = slotRepository.findById(slotId);
+        if (slotOpt.isEmpty() || !slotOpt.get().isAvailable()) return false;
+        
+        AppointmentSlot slot = slotOpt.get();
         Appointment appointment = new Appointment(
                 0,
                 slotId,
                 username,
+                slot.date,
+                slot.time,
                 durationMinutes,
                 participants,
                 "Confirmed"
