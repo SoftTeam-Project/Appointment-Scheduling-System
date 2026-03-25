@@ -1,5 +1,7 @@
 package com.weam.appointments.presentation;
 
+import java.util.List;
+import com.weam.appointments.domain.Appointment;
 import com.weam.appointments.persistence.Db;
 import com.weam.appointments.persistence.JdbcAppointmentRepository;
 import com.weam.appointments.persistence.JdbcSlotRepository;
@@ -56,14 +58,21 @@ public class CliApp {
         out.print("Password: ");
         String p = sc.nextLine();
 
-        if (auth.login(u, p)) {
-            out.println("Login successful!");
+        var userRecordOpt = auth.login(u, p);
+        if (userRecordOpt.isPresent()) {
+            var userRecord = userRecordOpt.get();
+            String role = userRecord.role();
+            out.println("Login successful! Role: " + role);
 
             while (true) {
                 out.println("\n1) View available slots");
                 out.println("2) Book appointment");
                 out.println("3) Send reminders");
                 out.println("4) Logout");
+                out.println("5) Cancel appointment");
+                if ("ADMIN".equals(role)) {
+                    out.println("6) Admin: Cancel any appointment");
+                }
                 out.print("Choice: ");
                 String choice = sc.nextLine();
 
@@ -112,6 +121,54 @@ public class CliApp {
                     out.println("Logged out.");
                     return;
                     
+                 case "5":
+                    List<Appointment> userApps = bookingService.findFutureAppointmentsByUser(u);
+                    if (userApps.isEmpty()) {
+                    	
+                        out.println("You have no upcoming appointments.");
+                        break;
+                    }
+                    out.println("Your upcoming appointments:");
+                    for (Appointment a : userApps) {
+                    	
+                        out.println(a.getId() + ") " + a.getDate() + " " + a.getTime() + " (slot " + a.getSlotId() + ")");
+                    }
+                    out.print("Enter appointment ID to cancel: ");
+                    int appId = Integer.parseInt(sc.nextLine());
+                    if (bookingService.cancelAppointment(appId, u)) {
+                    	
+                        out.println("Appointment cancelled successfully.");
+                    } else {
+                    	
+                        out.println("Cancellation failed. Ensure the appointment is in the future and belongs to you.");
+                    }
+                    break;
+                    
+                 case "6":
+                     if (!"ADMIN".equals(role)) {
+                         out.println("Invalid choice.");
+                         break;
+                     }
+                     // عرض جميع المواعيد المستقبلية
+                     List<Appointment> allApps = bookingService.findAllFutureAppointments();
+                     if (allApps.isEmpty()) {
+                         out.println("No upcoming appointments.");
+                         break;
+                     }
+                     out.println("All upcoming appointments:");
+                     for (Appointment a : allApps) {
+                         out.println(a.getId() + ") " + a.getDate() + " " + a.getTime() +
+                                 " (user: " + a.getUsername() + ", slot " + a.getSlotId() + ")");
+                     }
+                     out.print("Enter appointment ID to cancel (as admin): ");
+                     int adminAppId = Integer.parseInt(sc.nextLine());
+                     if (bookingService.adminCancelAppointment(adminAppId)) {
+                         out.println("Appointment cancelled successfully by admin.");
+                     } else {
+                         out.println("Admin cancellation failed.");
+                     }
+                     break;
+                     
                 default:
                     out.println("Invalid choice.");
             }

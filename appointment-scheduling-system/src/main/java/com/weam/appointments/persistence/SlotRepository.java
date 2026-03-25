@@ -7,4 +7,6 @@ import java.util.Optional;
 public interface SlotRepository {
     List<AppointmentSlot> findAvailableSlots();
     Optional<AppointmentSlot> findById(int slotId);
+    boolean incrementBookedCount(int slotId);
+    boolean decrementBookedCount(int slotId);
 }
