@@ -1,5 +1,5 @@
 package com.weam.appointments.service;
-
+import com.weam.appointments.domain.AppointmentType;
 import com.weam.appointments.domain.Appointment;
 import com.weam.appointments.domain.User;
 import com.weam.appointments.notification.NotificationService;
@@ -49,10 +49,9 @@ class ReminderServiceTest {
 
     @Test
     void sendReminders_shouldSendOnlyForUpcomingAppointments() {
-        Appointment upcoming1 = new Appointment(1, 1, "john", "2026-03-01", "10:00", 30, 2, "Confirmed");
-        Appointment upcoming2 = new Appointment(2, 2, "jane", "2026-03-01", "14:00", 60, 1, "Confirmed");
-        Appointment past = new Appointment(3, 3, "bob", "2026-02-28", "15:00", 30, 1, "Confirmed");
-
+    	Appointment upcoming1 = new Appointment(1, 1, "john", "2026-03-01", "10:00", 30, 2, "Confirmed", AppointmentType.GROUP);
+    	Appointment upcoming2 = new Appointment(2, 2, "jane", "2026-03-01", "14:00", 60, 1, "Confirmed", AppointmentType.INDIVIDUAL);
+    	Appointment past = new Appointment(3, 3, "bob", "2026-02-28", "15:00", 30, 1, "Confirmed", AppointmentType.INDIVIDUAL);
         LocalDateTime now = LocalDateTime.now(fixedClock);
         LocalDateTime tomorrow = now.plusHours(24);
 

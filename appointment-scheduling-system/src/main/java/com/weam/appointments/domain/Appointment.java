@@ -9,8 +9,10 @@ public class Appointment {
     private final int durationMinutes;
     private final int participants;
     private final String status;
+    private final AppointmentType type;
 
-    public Appointment(int id, int slotId, String username,String date, String time, int durationMinutes, int participants, String status) {
+    public Appointment(int id, int slotId, String username, String date, String time,
+                       int durationMinutes, int participants, String status, AppointmentType type) {
         this.id = id;
         this.slotId = slotId;
         this.username = username;
@@ -19,6 +21,7 @@ public class Appointment {
         this.durationMinutes = durationMinutes;
         this.participants = participants;
         this.status = status;
+        this.type = type;
     }
 
     public int getId() {
@@ -32,13 +35,14 @@ public class Appointment {
     public String getUsername() {
         return username;
     }
+
     public String getDate() {
-    	return date;
-    	
-   	}
+        return date;
+    }
+
     public String getTime() {
-    	return time;
-   	}
+        return time;
+    }
 
     public int getDurationMinutes() {
         return durationMinutes;
@@ -50,5 +54,9 @@ public class Appointment {
 
     public String getStatus() {
         return status;
+    }
+
+    public AppointmentType getType() {
+        return type;
     }
 }
