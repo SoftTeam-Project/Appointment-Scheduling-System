@@ -10,7 +10,7 @@ public class JdbcUserRepository implements UserRepository {
     @Override
     public Optional<UserRecord> findByUsername(String username) {
 
-        String sql = "SELECT username, password, role FROM users WHERE username = ?";
+    	 String sql = "SELECT username, password, role, email FROM users WHERE username = ?";
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -21,13 +21,12 @@ public class JdbcUserRepository implements UserRepository {
 
                 if (!rs.next()) return Optional.empty();
 
-                return Optional.of(
-                        new UserRecord(
-                                rs.getString("username"),
-                                rs.getString("password"),
-                                rs.getString("role")
-                        )
-                );
+                return Optional.of(new UserRecord(
+                        rs.getString("username"),
+                        rs.getString("password"),
+                        rs.getString("role"),
+                        rs.getString("email")   // <-- أضف هذا
+                    ));
             }
 
         } catch (Exception e) {
@@ -36,7 +35,7 @@ public class JdbcUserRepository implements UserRepository {
     }
     @Override
     public boolean addUser(String username, String password, String role) {
-        String sql = "INSERT INTO users(username,password,role) VALUES (?,?,?)";
+    	 String sql = "INSERT INTO users(username, password, role, email) VALUES (?, ?, ?, ?)";
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -44,7 +43,7 @@ public class JdbcUserRepository implements UserRepository {
             ps.setString(1, username);
             ps.setString(2, password);
             ps.setString(3, role);
-
+            ps.setString(4, "");
             return ps.executeUpdate() == 1;
 
         } catch (Exception e) {

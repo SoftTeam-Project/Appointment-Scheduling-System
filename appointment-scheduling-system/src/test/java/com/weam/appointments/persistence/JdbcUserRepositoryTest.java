@@ -7,18 +7,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import com.weam.appointments.persistence.JdbcUserRepository;
-import com.weam.appointments.persistence.SchemaInitializer;
 import com.weam.appointments.presentation.CliApp;
 import com.weam.appointments.service.AuthService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import com.weam.appointments.notification.NotificationService;
 
 import java.io.*;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Disabled;
+
 class JdbcUserRepositoryTest {
+	private NotificationService notificationService;
+
 
 	@BeforeAll
 	static void setUpBeforeClass() throws Exception {
@@ -29,8 +29,12 @@ class JdbcUserRepositoryTest {
 	}
 
 	@BeforeEach
-	void setUp() throws Exception {
-	}
+	 void setUp() throws Exception {
+        System.setProperty("db.url", "jdbc:sqlite:test-db.sqlite");
+        new java.io.File("test-db.sqlite").delete();
+        new SchemaInitializer().init();
+        notificationService = new NotificationService();
+    }
 
 	@AfterEach
 	void tearDown() throws Exception {
@@ -50,7 +54,7 @@ class JdbcUserRepositoryTest {
 	    ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
 	    PrintStream out = new PrintStream(outBytes);
 
-	    CliApp app = new CliApp(auth, in, out);
+	    CliApp app = new CliApp(auth,notificationService, in, out);
 	    app.runOnce();
 
 	    String output = outBytes.toString();
