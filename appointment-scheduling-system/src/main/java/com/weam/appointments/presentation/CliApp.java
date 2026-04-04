@@ -241,4 +241,6 @@ public class CliApp {
 
         new CliApp(auth, notificationService, System.in, System.out).runOnce();
     }
+   
+    
 }

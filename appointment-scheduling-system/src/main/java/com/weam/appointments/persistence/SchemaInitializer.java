@@ -8,14 +8,16 @@ import java.sql.Statement;
 public class SchemaInitializer {
 
 	private void upgradeAppointmentsTable(Statement st) throws SQLException {
-	    // تحقق مما إذا كان العمود appointment_date موجودًا
 	    ResultSet rs = st.executeQuery("PRAGMA table_info(appointments)");
 	    boolean hasDateColumn = false;
 	    boolean hasTimeColumn = false;
+	    boolean hasTypeColumn = false;
+
 	    while (rs.next()) {
 	        String colName = rs.getString("name");
 	        if ("appointment_date".equals(colName)) hasDateColumn = true;
 	        if ("appointment_time".equals(colName)) hasTimeColumn = true;
+	        if ("type".equals(colName)) hasTypeColumn = true;
 	    }
 	    rs.close();
 
@@ -24,6 +26,9 @@ public class SchemaInitializer {
 	    }
 	    if (!hasTimeColumn) {
 	        st.execute("ALTER TABLE appointments ADD COLUMN appointment_time TEXT NOT NULL DEFAULT ''");
+	    }
+	    if (!hasTypeColumn) {
+	        st.execute("ALTER TABLE appointments ADD COLUMN type TEXT NOT NULL DEFAULT 'INDIVIDUAL'");
 	    }
 	}
 	
@@ -86,7 +91,10 @@ public class SchemaInitializer {
             	        username TEXT NOT NULL,
             	        duration_minutes INTEGER NOT NULL,
             	        participants INTEGER NOT NULL,
-            	        status TEXT NOT NULL
+            	        status TEXT NOT NULL,
+            	        appointment_date TEXT NOT NULL DEFAULT '',
+            	        appointment_time TEXT NOT NULL DEFAULT '',
+            	        type TEXT NOT NULL DEFAULT 'INDIVIDUAL'
             	    );
             	""");
             upgradeAppointmentsTable(st);
