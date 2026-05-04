@@ -11,34 +11,52 @@ import java.util.Optional;
 
 public class JdbcAppointmentRepository implements AppointmentRepository {
 
+    private static final String TABLE_APPOINTMENTS = "appointments";
+
+    private static final String COL_ID = "id";
+    private static final String COL_SLOT_ID = "slot_id";
+    private static final String COL_USERNAME = "username";
+    private static final String COL_APPOINTMENT_DATE = "appointment_date";
+    private static final String COL_APPOINTMENT_TIME = "appointment_time";
+    private static final String COL_DURATION_MINUTES = "duration_minutes";
+    private static final String COL_PARTICIPANTS = "participants";
+    private static final String COL_STATUS = "status";
+    private static final String COL_TYPE = "type";
+
+    private static final String STATUS_CONFIRMED = "Confirmed";
+
+    private static final String SELECT_COLUMNS =
+            COL_ID + ", " +
+            COL_SLOT_ID + ", " +
+            COL_USERNAME + ", " +
+            COL_APPOINTMENT_DATE + ", " +
+            COL_APPOINTMENT_TIME + ", " +
+            COL_DURATION_MINUTES + ", " +
+            COL_PARTICIPANTS + ", " +
+            COL_STATUS + ", " +
+            COL_TYPE;
+
     @Override
     public List<Appointment> findAllFutureAppointments() {
-        String sql = "SELECT id, slot_id, username, appointment_date, appointment_time, duration_minutes, participants, status, type " +
-                     "FROM appointments WHERE status = 'Confirmed' AND (appointment_date || ' ' || appointment_time) >= datetime('now') " +
-                     "ORDER BY appointment_date, appointment_time";
+        String sql = "SELECT " + SELECT_COLUMNS +
+                " FROM " + TABLE_APPOINTMENTS +
+                " WHERE " + COL_STATUS + " = ?" +
+                " AND (" + COL_APPOINTMENT_DATE + " || ' ' || " + COL_APPOINTMENT_TIME + ") >= datetime('now')" +
+                " ORDER BY " + COL_APPOINTMENT_DATE + ", " + COL_APPOINTMENT_TIME;
 
         List<Appointment> list = new ArrayList<>();
 
         try (Connection con = Db.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = con.prepareStatement(sql)) {
 
-            while (rs.next()) {
-                list.add(new Appointment(
-                    rs.getInt("id"),
-                    rs.getInt("slot_id"),
-                    rs.getString("username"),
-                    rs.getString("appointment_date"),
-                    rs.getString("appointment_time"),
-                    rs.getInt("duration_minutes"),
-                    rs.getInt("participants"),
-                    rs.getString("status"),
-                    rs.getString("type") == null
-                        ? AppointmentType.INDIVIDUAL
-                        : AppointmentType.valueOf(rs.getString("type"))
-                ));
+            ps.setString(1, STATUS_CONFIRMED);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapAppointment(rs));
+                }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             throw new RuntimeException("DB query failed", e);
         }
 
@@ -47,11 +65,16 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     @Override
     public boolean save(Appointment appointment) {
-        String sql = """
-            INSERT INTO appointments(slot_id, username, appointment_date, appointment_time,
-                                     duration_minutes, participants, status, type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """;
+        String sql = "INSERT INTO " + TABLE_APPOINTMENTS + "(" +
+                COL_SLOT_ID + ", " +
+                COL_USERNAME + ", " +
+                COL_APPOINTMENT_DATE + ", " +
+                COL_APPOINTMENT_TIME + ", " +
+                COL_DURATION_MINUTES + ", " +
+                COL_PARTICIPANTS + ", " +
+                COL_STATUS + ", " +
+                COL_TYPE +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -66,7 +89,7 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
             ps.setString(8, appointment.getType().name());
 
             return ps.executeUpdate() == 1;
-        } catch (Exception e) {
+        } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
@@ -74,8 +97,9 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     @Override
     public Optional<Appointment> findById(int id) {
-        String sql = "SELECT id, slot_id, username, appointment_date, appointment_time, " +
-                     "duration_minutes, participants, status, type FROM appointments WHERE id = ?";
+        String sql = "SELECT " + SELECT_COLUMNS +
+                " FROM " + TABLE_APPOINTMENTS +
+                " WHERE " + COL_ID + " = ?";
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -84,22 +108,10 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return Optional.of(new Appointment(
-                        rs.getInt("id"),
-                        rs.getInt("slot_id"),
-                        rs.getString("username"),
-                        rs.getString("appointment_date"),
-                        rs.getString("appointment_time"),
-                        rs.getInt("duration_minutes"),
-                        rs.getInt("participants"),
-                        rs.getString("status"),
-                        rs.getString("type") == null
-                            ? AppointmentType.INDIVIDUAL
-                            : AppointmentType.valueOf(rs.getString("type"))
-                    ));
+                    return Optional.of(mapAppointment(rs));
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             throw new RuntimeException("DB query failed", e);
         }
 
@@ -108,14 +120,15 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     @Override
     public boolean deleteById(int id) {
-        String sql = "DELETE FROM appointments WHERE id = ?";
+        String sql = "DELETE FROM " + TABLE_APPOINTMENTS +
+                " WHERE " + COL_ID + " = ?";
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, id);
             return ps.executeUpdate() == 1;
-        } catch (Exception e) {
+        } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
@@ -123,41 +136,27 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     @Override
     public List<Appointment> findUpcomingAppointments(LocalDateTime from, LocalDateTime to) {
-        String sql = """
-            SELECT id, slot_id, username, appointment_date, appointment_time,
-                   duration_minutes, participants, status, type
-            FROM appointments
-            WHERE status = 'Confirmed'
-              AND (appointment_date || ' ' || appointment_time) BETWEEN ? AND ?
-            ORDER BY appointment_date, appointment_time
-            """;
+        String sql = "SELECT " + SELECT_COLUMNS +
+                " FROM " + TABLE_APPOINTMENTS +
+                " WHERE " + COL_STATUS + " = ?" +
+                " AND (" + COL_APPOINTMENT_DATE + " || ' ' || " + COL_APPOINTMENT_TIME + ") BETWEEN ? AND ?" +
+                " ORDER BY " + COL_APPOINTMENT_DATE + ", " + COL_APPOINTMENT_TIME;
 
         List<Appointment> result = new ArrayList<>();
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
-            ps.setString(1, from.toString().replace('T', ' '));
-            ps.setString(2, to.toString().replace('T', ' '));
+            ps.setString(1, STATUS_CONFIRMED);
+            ps.setString(2, formatDateTime(from));
+            ps.setString(3, formatDateTime(to));
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    result.add(new Appointment(
-                        rs.getInt("id"),
-                        rs.getInt("slot_id"),
-                        rs.getString("username"),
-                        rs.getString("appointment_date"),
-                        rs.getString("appointment_time"),
-                        rs.getInt("duration_minutes"),
-                        rs.getInt("participants"),
-                        rs.getString("status"),
-                        rs.getString("type") == null
-                            ? AppointmentType.INDIVIDUAL
-                            : AppointmentType.valueOf(rs.getString("type"))
-                    ));
+                    result.add(mapAppointment(rs));
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             throw new RuntimeException("Failed to fetch upcoming appointments", e);
         }
 
@@ -166,15 +165,12 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     @Override
     public List<Appointment> findFutureAppointmentsByUser(String username) {
-        String sql = """
-            SELECT id, slot_id, username, appointment_date, appointment_time,
-                   duration_minutes, participants, status, type
-            FROM appointments
-            WHERE username = ?
-              AND status = 'Confirmed'
-              AND (appointment_date || ' ' || appointment_time) >= datetime('now')
-            ORDER BY appointment_date, appointment_time
-            """;
+        String sql = "SELECT " + SELECT_COLUMNS +
+                " FROM " + TABLE_APPOINTMENTS +
+                " WHERE " + COL_USERNAME + " = ?" +
+                " AND " + COL_STATUS + " = ?" +
+                " AND (" + COL_APPOINTMENT_DATE + " || ' ' || " + COL_APPOINTMENT_TIME + ") >= datetime('now')" +
+                " ORDER BY " + COL_APPOINTMENT_DATE + ", " + COL_APPOINTMENT_TIME;
 
         List<Appointment> list = new ArrayList<>();
 
@@ -182,28 +178,41 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, username);
+            ps.setString(2, STATUS_CONFIRMED);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new Appointment(
-                        rs.getInt("id"),
-                        rs.getInt("slot_id"),
-                        rs.getString("username"),
-                        rs.getString("appointment_date"),
-                        rs.getString("appointment_time"),
-                        rs.getInt("duration_minutes"),
-                        rs.getInt("participants"),
-                        rs.getString("status"),
-                        rs.getString("type") == null
-                            ? AppointmentType.INDIVIDUAL
-                            : AppointmentType.valueOf(rs.getString("type"))
-                    ));
+                    list.add(mapAppointment(rs));
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             throw new RuntimeException("DB query failed", e);
         }
 
         return list;
+    }
+
+    private Appointment mapAppointment(ResultSet rs) throws SQLException {
+        String typeValue = rs.getString(COL_TYPE);
+
+        AppointmentType appointmentType = typeValue == null
+                ? AppointmentType.INDIVIDUAL
+                : AppointmentType.valueOf(typeValue);
+
+        return new Appointment(
+                rs.getInt(COL_ID),
+                rs.getInt(COL_SLOT_ID),
+                rs.getString(COL_USERNAME),
+                rs.getString(COL_APPOINTMENT_DATE),
+                rs.getString(COL_APPOINTMENT_TIME),
+                rs.getInt(COL_DURATION_MINUTES),
+                rs.getInt(COL_PARTICIPANTS),
+                rs.getString(COL_STATUS),
+                appointmentType
+        );
+    }
+
+    private String formatDateTime(LocalDateTime dateTime) {
+        return dateTime.toString().replace('T', ' ');
     }
 }
