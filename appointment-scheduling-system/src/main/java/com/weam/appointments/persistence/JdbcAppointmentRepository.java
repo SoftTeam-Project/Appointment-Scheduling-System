@@ -3,7 +3,10 @@ package com.weam.appointments.persistence;
 import com.weam.appointments.domain.Appointment;
 import com.weam.appointments.domain.AppointmentType;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,24 +28,36 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     private static final String STATUS_CONFIRMED = "Confirmed";
 
+    private static final String SQL_SELECT = "SELECT ";
+    private static final String SQL_FROM = " FROM ";
+    private static final String SQL_WHERE = " WHERE ";
+    private static final String SQL_AND = " AND ";
+    private static final String SQL_ORDER_BY = " ORDER BY ";
+    private static final String SQL_EQUALS_PARAM = " = ?";
+    private static final String SQL_DATE_SEPARATOR = " || ' ' || ";
+    private static final String SQL_COMMA_SPACE = ", ";
+
+    private static final String DATE_TIME_EXPRESSION =
+            "(" + COL_APPOINTMENT_DATE + SQL_DATE_SEPARATOR + COL_APPOINTMENT_TIME + ")";
+
     private static final String SELECT_COLUMNS =
-            COL_ID + ", " +
-            COL_SLOT_ID + ", " +
-            COL_USERNAME + ", " +
-            COL_APPOINTMENT_DATE + ", " +
-            COL_APPOINTMENT_TIME + ", " +
-            COL_DURATION_MINUTES + ", " +
-            COL_PARTICIPANTS + ", " +
-            COL_STATUS + ", " +
+            COL_ID + SQL_COMMA_SPACE +
+            COL_SLOT_ID + SQL_COMMA_SPACE +
+            COL_USERNAME + SQL_COMMA_SPACE +
+            COL_APPOINTMENT_DATE + SQL_COMMA_SPACE +
+            COL_APPOINTMENT_TIME + SQL_COMMA_SPACE +
+            COL_DURATION_MINUTES + SQL_COMMA_SPACE +
+            COL_PARTICIPANTS + SQL_COMMA_SPACE +
+            COL_STATUS + SQL_COMMA_SPACE +
             COL_TYPE;
 
     @Override
     public List<Appointment> findAllFutureAppointments() {
-        String sql = "SELECT " + SELECT_COLUMNS +
-                " FROM " + TABLE_APPOINTMENTS +
-                " WHERE " + COL_STATUS + " = ?" +
-                " AND (" + COL_APPOINTMENT_DATE + " || ' ' || " + COL_APPOINTMENT_TIME + ") >= datetime('now')" +
-                " ORDER BY " + COL_APPOINTMENT_DATE + ", " + COL_APPOINTMENT_TIME;
+        String sql = SQL_SELECT + SELECT_COLUMNS +
+                SQL_FROM + TABLE_APPOINTMENTS +
+                SQL_WHERE + COL_STATUS + SQL_EQUALS_PARAM +
+                SQL_AND + DATE_TIME_EXPRESSION + " >= datetime('now')" +
+                SQL_ORDER_BY + COL_APPOINTMENT_DATE + SQL_COMMA_SPACE + COL_APPOINTMENT_TIME;
 
         List<Appointment> list = new ArrayList<>();
 
@@ -56,6 +71,7 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
                     list.add(mapAppointment(rs));
                 }
             }
+
         } catch (SQLException e) {
             throw new RuntimeException("DB query failed", e);
         }
@@ -66,13 +82,13 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
     @Override
     public boolean save(Appointment appointment) {
         String sql = "INSERT INTO " + TABLE_APPOINTMENTS + "(" +
-                COL_SLOT_ID + ", " +
-                COL_USERNAME + ", " +
-                COL_APPOINTMENT_DATE + ", " +
-                COL_APPOINTMENT_TIME + ", " +
-                COL_DURATION_MINUTES + ", " +
-                COL_PARTICIPANTS + ", " +
-                COL_STATUS + ", " +
+                COL_SLOT_ID + SQL_COMMA_SPACE +
+                COL_USERNAME + SQL_COMMA_SPACE +
+                COL_APPOINTMENT_DATE + SQL_COMMA_SPACE +
+                COL_APPOINTMENT_TIME + SQL_COMMA_SPACE +
+                COL_DURATION_MINUTES + SQL_COMMA_SPACE +
+                COL_PARTICIPANTS + SQL_COMMA_SPACE +
+                COL_STATUS + SQL_COMMA_SPACE +
                 COL_TYPE +
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -89,6 +105,7 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
             ps.setString(8, appointment.getType().name());
 
             return ps.executeUpdate() == 1;
+
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
@@ -97,9 +114,9 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     @Override
     public Optional<Appointment> findById(int id) {
-        String sql = "SELECT " + SELECT_COLUMNS +
-                " FROM " + TABLE_APPOINTMENTS +
-                " WHERE " + COL_ID + " = ?";
+        String sql = SQL_SELECT + SELECT_COLUMNS +
+                SQL_FROM + TABLE_APPOINTMENTS +
+                SQL_WHERE + COL_ID + SQL_EQUALS_PARAM;
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -111,6 +128,7 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
                     return Optional.of(mapAppointment(rs));
                 }
             }
+
         } catch (SQLException e) {
             throw new RuntimeException("DB query failed", e);
         }
@@ -121,13 +139,14 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
     @Override
     public boolean deleteById(int id) {
         String sql = "DELETE FROM " + TABLE_APPOINTMENTS +
-                " WHERE " + COL_ID + " = ?";
+                SQL_WHERE + COL_ID + SQL_EQUALS_PARAM;
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, id);
             return ps.executeUpdate() == 1;
+
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
@@ -136,11 +155,11 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     @Override
     public List<Appointment> findUpcomingAppointments(LocalDateTime from, LocalDateTime to) {
-        String sql = "SELECT " + SELECT_COLUMNS +
-                " FROM " + TABLE_APPOINTMENTS +
-                " WHERE " + COL_STATUS + " = ?" +
-                " AND (" + COL_APPOINTMENT_DATE + " || ' ' || " + COL_APPOINTMENT_TIME + ") BETWEEN ? AND ?" +
-                " ORDER BY " + COL_APPOINTMENT_DATE + ", " + COL_APPOINTMENT_TIME;
+        String sql = SQL_SELECT + SELECT_COLUMNS +
+                SQL_FROM + TABLE_APPOINTMENTS +
+                SQL_WHERE + COL_STATUS + SQL_EQUALS_PARAM +
+                SQL_AND + DATE_TIME_EXPRESSION + " BETWEEN ? AND ?" +
+                SQL_ORDER_BY + COL_APPOINTMENT_DATE + SQL_COMMA_SPACE + COL_APPOINTMENT_TIME;
 
         List<Appointment> result = new ArrayList<>();
 
@@ -156,6 +175,7 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
                     result.add(mapAppointment(rs));
                 }
             }
+
         } catch (SQLException e) {
             throw new RuntimeException("Failed to fetch upcoming appointments", e);
         }
@@ -165,12 +185,12 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
 
     @Override
     public List<Appointment> findFutureAppointmentsByUser(String username) {
-        String sql = "SELECT " + SELECT_COLUMNS +
-                " FROM " + TABLE_APPOINTMENTS +
-                " WHERE " + COL_USERNAME + " = ?" +
-                " AND " + COL_STATUS + " = ?" +
-                " AND (" + COL_APPOINTMENT_DATE + " || ' ' || " + COL_APPOINTMENT_TIME + ") >= datetime('now')" +
-                " ORDER BY " + COL_APPOINTMENT_DATE + ", " + COL_APPOINTMENT_TIME;
+        String sql = SQL_SELECT + SELECT_COLUMNS +
+                SQL_FROM + TABLE_APPOINTMENTS +
+                SQL_WHERE + COL_USERNAME + SQL_EQUALS_PARAM +
+                SQL_AND + COL_STATUS + SQL_EQUALS_PARAM +
+                SQL_AND + DATE_TIME_EXPRESSION + " >= datetime('now')" +
+                SQL_ORDER_BY + COL_APPOINTMENT_DATE + SQL_COMMA_SPACE + COL_APPOINTMENT_TIME;
 
         List<Appointment> list = new ArrayList<>();
 
@@ -185,6 +205,7 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
                     list.add(mapAppointment(rs));
                 }
             }
+
         } catch (SQLException e) {
             throw new RuntimeException("DB query failed", e);
         }
