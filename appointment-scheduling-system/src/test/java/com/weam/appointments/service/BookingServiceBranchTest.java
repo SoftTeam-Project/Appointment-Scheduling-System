@@ -7,6 +7,8 @@ import com.weam.appointments.persistence.SlotRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -33,70 +35,25 @@ class BookingServiceBranchTest {
         bookingService = new BookingService(appointmentRepository, slotRepository);
     }
 
-    @Test
-    void bookAppointment_shouldReturnFalseWhenDurationIsInvalid() {
+    @ParameterizedTest
+    @CsvSource({
+            "0, 1, INDIVIDUAL",
+            "30, 0, INDIVIDUAL",
+            "30, 2, INDIVIDUAL",
+            "30, 1, GROUP",
+            "45, 1, URGENT"
+    })
+    void bookAppointment_shouldReturnFalseForInvalidInputs(
+            int duration,
+            int participants,
+            AppointmentType type
+    ) {
         boolean result = bookingService.bookAppointment(
                 1,
                 "student",
-                0,
-                1,
-                AppointmentType.INDIVIDUAL
-        );
-
-        assertFalse(result);
-        verifyNoInteractions(slotRepository);
-    }
-
-    @Test
-    void bookAppointment_shouldReturnFalseWhenParticipantsAreInvalid() {
-        boolean result = bookingService.bookAppointment(
-                1,
-                "student",
-                30,
-                0,
-                AppointmentType.INDIVIDUAL
-        );
-
-        assertFalse(result);
-        verifyNoInteractions(slotRepository);
-    }
-
-    @Test
-    void bookAppointment_shouldReturnFalseWhenIndividualHasMoreThanOneParticipant() {
-        boolean result = bookingService.bookAppointment(
-                1,
-                "student",
-                30,
-                2,
-                AppointmentType.INDIVIDUAL
-        );
-
-        assertFalse(result);
-        verifyNoInteractions(slotRepository);
-    }
-
-    @Test
-    void bookAppointment_shouldReturnFalseWhenGroupHasOnlyOneParticipant() {
-        boolean result = bookingService.bookAppointment(
-                1,
-                "student",
-                30,
-                1,
-                AppointmentType.GROUP
-        );
-
-        assertFalse(result);
-        verifyNoInteractions(slotRepository);
-    }
-
-    @Test
-    void bookAppointment_shouldReturnFalseWhenUrgentDurationIsMoreThanThirtyMinutes() {
-        boolean result = bookingService.bookAppointment(
-                1,
-                "student",
-                45,
-                1,
-                AppointmentType.URGENT
+                duration,
+                participants,
+                type
         );
 
         assertFalse(result);

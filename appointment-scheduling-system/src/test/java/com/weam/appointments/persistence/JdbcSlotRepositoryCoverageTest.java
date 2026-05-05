@@ -21,7 +21,7 @@ class JdbcSlotRepositoryCoverageTest {
     private JdbcSlotRepository repository;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp()  {
         Path dbPath = tempDir.resolve("slot-repository-test.sqlite");
         System.setProperty("db.url", "jdbc:sqlite:" + dbPath);
 

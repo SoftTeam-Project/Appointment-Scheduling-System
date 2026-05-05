@@ -7,11 +7,16 @@ import com.weam.appointments.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,77 +32,61 @@ class CliAppAdditionalCoverageTest {
         new SchemaInitializer().init();
     }
 
-    @Test
-    void runOnce_shouldExitImmediatelyWhenUserTypesExit() {
-        String input = "exit\n";
+    @ParameterizedTest
+    @MethodSource("cliScenarios")
+    void runOnce_shouldHandleCommonScenarios(String input, List<String> expectedOutputs) {
         String output = runCli(input);
 
-        assertTrue(output.contains("Appointment Scheduling System"));
-        assertTrue(output.contains("Username"));
+        for (String expected : expectedOutputs) {
+            assertTrue(output.contains(expected));
+        }
     }
 
-    @Test
-    void runOnce_shouldPrintInvalidCredentialsForWrongLogin() {
-        String input = """
-                wrongUser
-                wrongPassword
-                """;
-
-        String output = runCli(input);
-
-        assertTrue(output.contains("Invalid credentials"));
-    }
-
-    @Test
-    void runOnce_shouldHandleInvalidAppointmentTypeThenLogout() {
-        String input = """
-                student
-                stud123
-                2
-                1
-                30
-                1
-                9
-                4
-                """;
-
-        String output = runCli(input);
-
-        assertTrue(output.contains("Login successful"));
-        assertTrue(output.contains("Invalid appointment type."));
-        assertTrue(output.contains("Logged out."));
-    }
-
-    @Test
-    void runOnce_shouldHandleStudentTryingAdminOptionThenLogout() {
-        String input = """
-                student
-                stud123
-                6
-                4
-                """;
-
-        String output = runCli(input);
-
-        assertTrue(output.contains("Login successful"));
-        assertTrue(output.contains("Invalid choice."));
-        assertTrue(output.contains("Logged out."));
-    }
-
-    @Test
-    void runOnce_shouldSendRemindersThenLogout() {
-        String input = """
-                student
-                stud123
-                3
-                4
-                """;
-
-        String output = runCli(input);
-
-        assertTrue(output.contains("Login successful"));
-        assertTrue(output.contains("Reminders sent."));
-        assertTrue(output.contains("Logged out."));
+    static Stream<Arguments> cliScenarios() {
+        return Stream.of(
+                Arguments.of(
+                        "exit\n",
+                        List.of("Appointment Scheduling System", "Username")
+                ),
+                Arguments.of(
+                        """
+                        wrongUser
+                        wrongPassword
+                        """,
+                        List.of("Invalid credentials")
+                ),
+                Arguments.of(
+                        """
+                        student
+                        stud123
+                        2
+                        1
+                        30
+                        1
+                        9
+                        4
+                        """,
+                        List.of("Login successful", "Invalid appointment type.", "Logged out.")
+                ),
+                Arguments.of(
+                        """
+                        student
+                        stud123
+                        6
+                        4
+                        """,
+                        List.of("Login successful", "Invalid choice.", "Logged out.")
+                ),
+                Arguments.of(
+                        """
+                        student
+                        stud123
+                        3
+                        4
+                        """,
+                        List.of("Login successful", "Reminders sent.", "Logged out.")
+                )
+        );
     }
 
     @Test
