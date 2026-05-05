@@ -1,6 +1,7 @@
 package com.weam.appointments.service;
-import com.weam.appointments.domain.AppointmentType;
+
 import com.weam.appointments.domain.Appointment;
+import com.weam.appointments.domain.AppointmentType;
 import com.weam.appointments.domain.User;
 import com.weam.appointments.notification.NotificationService;
 import com.weam.appointments.persistence.AppointmentRepository;
@@ -9,8 +10,6 @@ import com.weam.appointments.persistence.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -18,72 +17,133 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReminderServiceTest {
 
-    @Mock private AppointmentRepository appointmentRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private NotificationService notificationService;
-    @Captor private ArgumentCaptor<User> userCaptor;
-    @Captor private ArgumentCaptor<String> messageCaptor;
+    @Mock
+    private AppointmentRepository appointmentRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    private FakeNotificationService notificationService;
 
     private Clock fixedClock;
     private ReminderService reminderService;
 
     @BeforeEach
     void setUp() {
-        fixedClock = Clock.fixed(Instant.parse("2026-03-01T09:00:00Z"), ZoneId.systemDefault());
+        fixedClock = Clock.fixed(
+                Instant.parse("2026-03-01T09:00:00Z"),
+                ZoneId.systemDefault()
+        );
+
+        notificationService = new FakeNotificationService();
+
         reminderService = new ReminderService(
-            appointmentRepository,
-            userRepository,
-            notificationService,
-            fixedClock
+                appointmentRepository,
+                userRepository,
+                notificationService,
+                fixedClock
         );
     }
 
     @Test
     void sendReminders_shouldSendOnlyForUpcomingAppointments() {
-    	Appointment upcoming1 = new Appointment(1, 1, "john", "2026-03-01", "10:00", 30, 2, "Confirmed", AppointmentType.GROUP);
-    	Appointment upcoming2 = new Appointment(2, 2, "jane", "2026-03-01", "14:00", 60, 1, "Confirmed", AppointmentType.INDIVIDUAL);
-    	Appointment past = new Appointment(3, 3, "bob", "2026-02-28", "15:00", 30, 1, "Confirmed", AppointmentType.INDIVIDUAL);
-        LocalDateTime now = LocalDateTime.now(fixedClock);
-        LocalDateTime tomorrow = now.plusHours(24);
+        Appointment upcoming1 = Appointment.builder()
+                .id(1)
+                .slotId(1)
+                .username("john")
+                .date("2026-03-01")
+                .time("10:00")
+                .durationMinutes(30)
+                .participants(2)
+                .status("Confirmed")
+                .type(AppointmentType.GROUP)
+                .build();
 
-        when(appointmentRepository.findUpcomingAppointments(now, tomorrow))
-            .thenReturn(List.of(upcoming1, upcoming2));
+        Appointment upcoming2 = Appointment.builder()
+                .id(2)
+                .slotId(2)
+                .username("jane")
+                .date("2026-03-01")
+                .time("14:00")
+                .durationMinutes(60)
+                .participants(1)
+                .status("Confirmed")
+                .type(AppointmentType.INDIVIDUAL)
+                .build();
 
-        // ✅ التعديل هنا: إضافة email كمعامل رابع
-        when(userRepository.findByUsername("john")).thenReturn(Optional.of(new UserRecord("john", "pass", "STUDENT", "john@example.com")));
-        when(userRepository.findByUsername("jane")).thenReturn(Optional.of(new UserRecord("jane", "pass", "STUDENT", "jane@example.com")));
+        when(appointmentRepository.findUpcomingAppointments(
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        )).thenReturn(List.of(upcoming1, upcoming2));
+
+        when(userRepository.findByUsername("john"))
+                .thenReturn(Optional.of(
+                        new UserRecord("john", "pass", "STUDENT", "john@example.com")
+                ));
+
+        when(userRepository.findByUsername("jane"))
+                .thenReturn(Optional.of(
+                        new UserRecord("jane", "pass", "STUDENT", "jane@example.com")
+                ));
 
         reminderService.sendReminders();
 
-        verify(notificationService, times(2)).notifyAllObservers(userCaptor.capture(), messageCaptor.capture());
+        assertEquals(2, notificationService.getUsers().size());
+        assertEquals(2, notificationService.getMessages().size());
 
-        List<User> users = userCaptor.getAllValues();
-        List<String> messages = messageCaptor.getAllValues();
+        assertEquals("john", notificationService.getUsers().get(0).getUsername());
+        assertEquals(
+                "Reminder: You have an appointment on 2026-03-01 at 10:00.",
+                notificationService.getMessages().get(0)
+        );
 
-        assertEquals("john", users.get(0).getUsername());
-        assertEquals("Reminder: You have an appointment on 2026-03-01 at 10:00.", messages.get(0));
-        assertEquals("jane", users.get(1).getUsername());
-        assertEquals("Reminder: You have an appointment on 2026-03-01 at 14:00.", messages.get(1));
+        assertEquals("jane", notificationService.getUsers().get(1).getUsername());
+        assertEquals(
+                "Reminder: You have an appointment on 2026-03-01 at 14:00.",
+                notificationService.getMessages().get(1)
+        );
     }
 
     @Test
     void sendReminders_shouldNotSendIfNoUpcoming() {
-        LocalDateTime now = LocalDateTime.now(fixedClock);
-        LocalDateTime tomorrow = now.plusHours(24);
-        
-        when(appointmentRepository.findUpcomingAppointments(now, tomorrow)).thenReturn(List.of());
+        when(appointmentRepository.findUpcomingAppointments(
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
+        )).thenReturn(List.of());
 
         reminderService.sendReminders();
 
-        verify(notificationService, never()).notifyAllObservers(any(), any());
+        assertEquals(0, notificationService.getUsers().size());
+        assertEquals(0, notificationService.getMessages().size());
+    }
+
+    private static class FakeNotificationService extends NotificationService {
+        private final List<User> users = new ArrayList<>();
+        private final List<String> messages = new ArrayList<>();
+
+        @Override
+        public void notifyAllObservers(User user, String message) {
+            users.add(user);
+            messages.add(message);
+        }
+
+        List<User> getUsers() {
+            return users;
+        }
+
+        List<String> getMessages() {
+            return messages;
+        }
     }
 }

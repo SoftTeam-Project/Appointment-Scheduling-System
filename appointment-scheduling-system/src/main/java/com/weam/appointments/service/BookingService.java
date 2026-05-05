@@ -16,6 +16,8 @@ import java.util.Optional;
 
 public class BookingService {
 
+    private static final String STATUS_CONFIRMED = "Confirmed";
+
     private final AppointmentRepository appointmentRepository;
     private final SlotRepository slotRepository;
 
@@ -38,19 +40,9 @@ public class BookingService {
     }
 
     public boolean isValidForType(AppointmentType type, int durationMinutes, int participants) {
-        if (type == AppointmentType.INDIVIDUAL && participants != 1) {
-            return false;
-        }
-
-        if (type == AppointmentType.GROUP && participants < 2) {
-            return false;
-        }
-
-        if (type == AppointmentType.URGENT && durationMinutes > 30) {
-            return false;
-        }
-
-        return true;
+        return (type != AppointmentType.INDIVIDUAL || participants == 1)
+                && (type != AppointmentType.GROUP || participants >= 2)
+                && (type != AppointmentType.URGENT || durationMinutes <= 30);
     }
 
     public boolean bookAppointment(int slotId, String username, int durationMinutes, int participants, AppointmentType type) {
@@ -73,17 +65,17 @@ public class BookingService {
 
         AppointmentSlot slot = slotOpt.get();
 
-        Appointment appointment = new Appointment(
-            0,
-            slotId,
-            username,
-            slot.date,
-            slot.time,
-            durationMinutes,
-            participants,
-            "Confirmed",
-            type
-        );
+        Appointment appointment = Appointment.builder()
+                .id(0)
+                .slotId(slotId)
+                .username(username)
+                .date(slot.date)
+                .time(slot.time)
+                .durationMinutes(durationMinutes)
+                .participants(participants)
+                .status(STATUS_CONFIRMED)
+                .type(type)
+                .build();
 
         try (Connection con = Db.getConnection()) {
             con.setAutoCommit(false);

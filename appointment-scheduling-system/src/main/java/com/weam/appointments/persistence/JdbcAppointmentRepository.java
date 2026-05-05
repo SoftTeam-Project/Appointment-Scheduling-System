@@ -220,17 +220,17 @@ public class JdbcAppointmentRepository implements AppointmentRepository {
                 ? AppointmentType.INDIVIDUAL
                 : AppointmentType.valueOf(typeValue);
 
-        return new Appointment(
-                rs.getInt(COL_ID),
-                rs.getInt(COL_SLOT_ID),
-                rs.getString(COL_USERNAME),
-                rs.getString(COL_APPOINTMENT_DATE),
-                rs.getString(COL_APPOINTMENT_TIME),
-                rs.getInt(COL_DURATION_MINUTES),
-                rs.getInt(COL_PARTICIPANTS),
-                rs.getString(COL_STATUS),
-                appointmentType
-        );
+        return Appointment.builder()
+                .id(rs.getInt(COL_ID))
+                .slotId(rs.getInt(COL_SLOT_ID))
+                .username(rs.getString(COL_USERNAME))
+                .date(rs.getString(COL_APPOINTMENT_DATE))
+                .time(rs.getString(COL_APPOINTMENT_TIME))
+                .durationMinutes(rs.getInt(COL_DURATION_MINUTES))
+                .participants(rs.getInt(COL_PARTICIPANTS))
+                .status(rs.getString(COL_STATUS))
+                .type(appointmentType)
+                .build();
     }
 
     private String formatDateTime(LocalDateTime dateTime) {

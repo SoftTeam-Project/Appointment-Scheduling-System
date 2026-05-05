@@ -80,7 +80,7 @@ class JdbcAppointmentRepositoryTest {
     void findFutureAppointmentsByUserShouldReturnOnlyThatUsersFutureConfirmedAppointments() throws Exception {
         insertAppointment(1, "student", "2099-12-22", "09:00", 30, 1, "Confirmed", "INDIVIDUAL");
         insertAppointment(2, "student", "2099-12-23", "10:00", 45, 2, "Confirmed", "GROUP");
-        insertAppointment(3, "admin",   "2099-12-24", "11:00", 30, 1, "Confirmed", "INDIVIDUAL");
+        insertAppointment(3, "admin", "2099-12-24", "11:00", 30, 1, "Confirmed", "INDIVIDUAL");
         insertAppointment(1, "student", "2099-12-25", "12:00", 30, 1, "Cancelled", "INDIVIDUAL");
 
         List<Appointment> result = repository.findFutureAppointmentsByUser("student");
@@ -120,17 +120,17 @@ class JdbcAppointmentRepositoryTest {
 
     @Test
     void saveShouldInsertAppointmentSuccessfully() {
-        Appointment appointment = new Appointment(
-                0,
-                1,
-                "student",
-                "2099-12-29",
-                "15:00",
-                30,
-                1,
-                "Confirmed",
-                AppointmentType.INDIVIDUAL
-        );
+        Appointment appointment = Appointment.builder()
+                .id(0)
+                .slotId(1)
+                .username("student")
+                .date("2099-12-29")
+                .time("15:00")
+                .durationMinutes(30)
+                .participants(1)
+                .status("Confirmed")
+                .type(AppointmentType.INDIVIDUAL)
+                .build();
 
         boolean saved = repository.save(appointment);
 
