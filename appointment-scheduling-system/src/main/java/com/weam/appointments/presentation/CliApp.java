@@ -22,8 +22,12 @@ import java.sql.Statement;
 import java.time.Clock;
 import java.util.List;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class CliApp {
+
+    private static final Logger LOGGER = Logger.getLogger(CliApp.class.getName());
 
     private static final String ROLE_ADMIN = "ADMIN";
     private static final String EXIT_COMMAND = "exit";
@@ -346,16 +350,19 @@ public class CliApp {
         return ROLE_ADMIN.equals(role);
     }
 
+    @SuppressWarnings("java:S106")
     public static void main(String[] args) {
         new SchemaInitializer().init();
 
         try (Connection con = Db.getConnection();
              Statement st = con.createStatement()) {
+
             st.execute("DELETE FROM appointment_slots WHERE slot_date < date('now')");
             st.execute("INSERT INTO appointment_slots(slot_date, slot_time, capacity, booked_count) " +
                     "VALUES (date('now', '+1 day'), '14:00', 5, 0)");
+
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to initialize application data", e);
         }
 
         AuthService auth = new AuthService(new JdbcUserRepository());
