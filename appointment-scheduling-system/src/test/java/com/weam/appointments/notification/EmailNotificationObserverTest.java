@@ -14,7 +14,7 @@ import static org.mockito.Mockito.*;
 class EmailNotificationObserverTest {
 
     @Test
-    void notify_shouldSendEmail() throws Exception {
+    void notify_shouldSendEmail()  {
         try (MockedStatic<Transport> transportMock = Mockito.mockStatic(Transport.class)) {
             EmailNotificationObserver observer = new EmailNotificationObserver();
             // ✅ التعديل هنا: إضافة username و email

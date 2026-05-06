@@ -16,6 +16,21 @@ import java.util.Optional;
 
 public class BookingService {
 
+    private static final String STATUS_CONFIRMED = "Confirmed";
+
+    private static final String INSERT_APPOINTMENT_SQL =
+            "INSERT INTO appointments(slot_id, username, appointment_date, appointment_time, " +
+            "duration_minutes, participants, status, type) VALUES (?,?,?,?,?,?,?,?)";
+
+    private static final String INCREMENT_BOOKED_COUNT_SQL =
+            "UPDATE appointment_slots SET booked_count = booked_count + 1 WHERE id = ?";
+
+    private static final String DECREMENT_BOOKED_COUNT_SQL =
+            "UPDATE appointment_slots SET booked_count = booked_count - 1 WHERE id = ?";
+
+    private static final String DELETE_APPOINTMENT_SQL =
+            "DELETE FROM appointments WHERE id = ?";
+
     private final AppointmentRepository appointmentRepository;
     private final SlotRepository slotRepository;
 
@@ -38,22 +53,16 @@ public class BookingService {
     }
 
     public boolean isValidForType(AppointmentType type, int durationMinutes, int participants) {
-        if (type == AppointmentType.INDIVIDUAL && participants != 1) {
-            return false;
-        }
-
-        if (type == AppointmentType.GROUP && participants < 2) {
-            return false;
-        }
-
-        if (type == AppointmentType.URGENT && durationMinutes > 30) {
-            return false;
-        }
-
-        return true;
+        return (type != AppointmentType.INDIVIDUAL || participants == 1)
+                && (type != AppointmentType.GROUP || participants >= 2)
+                && (type != AppointmentType.URGENT || durationMinutes <= 30);
     }
 
-    public boolean bookAppointment(int slotId, String username, int durationMinutes, int participants, AppointmentType type) {
+    public boolean bookAppointment(int slotId,
+                                   String username,
+                                   int durationMinutes,
+                                   int participants,
+                                   AppointmentType type) {
         if (!isValidDuration(durationMinutes)) {
             return false;
         }
@@ -71,40 +80,43 @@ public class BookingService {
             return false;
         }
 
-        AppointmentSlot slot = slotOpt.get();
-
-        Appointment appointment = new Appointment(
-            0,
-            slotId,
-            username,
-            slot.date,
-            slot.time,
-            durationMinutes,
-            participants,
-            "Confirmed",
-            type
+        Appointment appointment = createAppointment(
+                slotId,
+                username,
+                durationMinutes,
+                participants,
+                type,
+                slotOpt.get()
         );
 
-        try (Connection con = Db.getConnection()) {
-            con.setAutoCommit(false);
-            try {
-                if (!saveAppointmentWithConnection(appointment, con)) {
-                    throw new SQLException("Save failed");
-                }
-
-                if (!incrementBookedCountWithConnection(slotId, con)) {
-                    throw new SQLException("Increment failed");
-                }
-
-                con.commit();
-                return true;
-            } catch (SQLException e) {
-                con.rollback();
-                return false;
+        return executeInTransaction(con -> {
+            if (!saveAppointmentWithConnection(appointment, con)) {
+                throw new SQLException("Save failed");
             }
-        } catch (SQLException e) {
-            return false;
-        }
+
+            if (!incrementBookedCountWithConnection(slotId, con)) {
+                throw new SQLException("Increment failed");
+            }
+        });
+    }
+
+    private Appointment createAppointment(int slotId,
+                                          String username,
+                                          int durationMinutes,
+                                          int participants,
+                                          AppointmentType type,
+                                          AppointmentSlot slot) {
+        return Appointment.builder()
+                .id(0)
+                .slotId(slotId)
+                .username(username)
+                .date(slot.date)
+                .time(slot.time)
+                .durationMinutes(durationMinutes)
+                .participants(participants)
+                .status(STATUS_CONFIRMED)
+                .type(type)
+                .build();
     }
 
     public boolean cancelAppointment(int appointmentId, String username) {
@@ -113,75 +125,17 @@ public class BookingService {
             return false;
         }
 
-        Appointment app = appOpt.get();
+        Appointment appointment = appOpt.get();
 
-        if (!app.getUsername().equals(username)) {
+        if (!appointment.getUsername().equals(username)) {
             return false;
         }
 
-        LocalDateTime appointmentDateTime = LocalDateTime.parse(app.getDate() + "T" + app.getTime());
-        if (appointmentDateTime.isBefore(LocalDateTime.now())) {
+        if (isPastAppointment(appointment)) {
             return false;
         }
 
-        int slotId = app.getSlotId();
-
-        try (Connection con = Db.getConnection()) {
-            con.setAutoCommit(false);
-
-            if (!deleteAppointmentWithConnection(appointmentId, con)) {
-                throw new SQLException("Delete failed");
-            }
-
-            if (!decrementBookedCountWithConnection(slotId, con)) {
-                throw new SQLException("Decrement failed");
-            }
-
-            con.commit();
-            return true;
-
-        } catch (SQLException e) {
-            return false;
-        }
-    }
-
-    public List<Appointment> findFutureAppointmentsByUser(String username) {
-        return appointmentRepository.findFutureAppointmentsByUser(username);
-    }
-
-    private boolean saveAppointmentWithConnection(Appointment app, Connection con) throws SQLException {
-        String sql = "INSERT INTO appointments(slot_id, username, appointment_date, appointment_time, " +
-                     "duration_minutes, participants, status, type) VALUES (?,?,?,?,?,?,?,?)";
-
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, app.getSlotId());
-            ps.setString(2, app.getUsername());
-            ps.setString(3, app.getDate());
-            ps.setString(4, app.getTime());
-            ps.setInt(5, app.getDurationMinutes());
-            ps.setInt(6, app.getParticipants());
-            ps.setString(7, app.getStatus());
-            ps.setString(8, app.getType().name());
-            return ps.executeUpdate() == 1;
-        }
-    }
-
-    private boolean incrementBookedCountWithConnection(int slotId, Connection con) throws SQLException {
-        String sql = "UPDATE appointment_slots SET booked_count = booked_count + 1 WHERE id = ?";
-
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, slotId);
-            return ps.executeUpdate() == 1;
-        }
-    }
-
-    private boolean deleteAppointmentWithConnection(int id, Connection con) throws SQLException {
-        String sql = "DELETE FROM appointments WHERE id = ?";
-
-        try (PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            return ps.executeUpdate() == 1;
-        }
+        return cancelAppointmentByIdAndSlot(appointmentId, appointment.getSlotId());
     }
 
     public boolean adminCancelAppointment(int appointmentId) {
@@ -190,12 +144,12 @@ public class BookingService {
             return false;
         }
 
-        Appointment app = appOpt.get();
-        int slotId = app.getSlotId();
+        Appointment appointment = appOpt.get();
+        return cancelAppointmentByIdAndSlot(appointmentId, appointment.getSlotId());
+    }
 
-        try (Connection con = Db.getConnection()) {
-            con.setAutoCommit(false);
-
+    private boolean cancelAppointmentByIdAndSlot(int appointmentId, int slotId) {
+        return executeInTransaction(con -> {
             if (!deleteAppointmentWithConnection(appointmentId, con)) {
                 throw new SQLException("Delete failed");
             }
@@ -203,24 +157,81 @@ public class BookingService {
             if (!decrementBookedCountWithConnection(slotId, con)) {
                 throw new SQLException("Decrement failed");
             }
+        });
+    }
 
-            con.commit();
-            return true;
-        } catch (SQLException e) {
-            return false;
-        }
+    private boolean isPastAppointment(Appointment appointment) {
+        LocalDateTime appointmentDateTime =
+                LocalDateTime.parse(appointment.getDate() + "T" + appointment.getTime());
+
+        return appointmentDateTime.isBefore(LocalDateTime.now());
+    }
+
+    public List<Appointment> findFutureAppointmentsByUser(String username) {
+        return appointmentRepository.findFutureAppointmentsByUser(username);
     }
 
     public List<Appointment> findAllFutureAppointments() {
         return appointmentRepository.findAllFutureAppointments();
     }
 
-    private boolean decrementBookedCountWithConnection(int slotId, Connection con) throws SQLException {
-        String sql = "UPDATE appointment_slots SET booked_count = booked_count - 1 WHERE id = ?";
+    private boolean executeInTransaction(TransactionAction action) {
+        try (Connection con = Db.getConnection()) {
+            con.setAutoCommit(false);
 
+            try {
+                action.execute(con);
+                con.commit();
+                return true;
+            } catch (SQLException e) {
+                con.rollback();
+                return false;
+            }
+
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
+    private boolean saveAppointmentWithConnection(Appointment app, Connection con) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(INSERT_APPOINTMENT_SQL)) {
+            ps.setInt(1, app.getSlotId());
+            ps.setString(2, app.getUsername());
+            ps.setString(3, app.getDate());
+            ps.setString(4, app.getTime());
+            ps.setInt(5, app.getDurationMinutes());
+            ps.setInt(6, app.getParticipants());
+            ps.setString(7, app.getStatus());
+            ps.setString(8, app.getType().name());
+
+            return ps.executeUpdate() == 1;
+        }
+    }
+
+    private boolean incrementBookedCountWithConnection(int slotId, Connection con) throws SQLException {
+        return updateBookedCount(slotId, con, INCREMENT_BOOKED_COUNT_SQL);
+    }
+
+    private boolean decrementBookedCountWithConnection(int slotId, Connection con) throws SQLException {
+        return updateBookedCount(slotId, con, DECREMENT_BOOKED_COUNT_SQL);
+    }
+
+    private boolean updateBookedCount(int slotId, Connection con, String sql) throws SQLException {
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, slotId);
             return ps.executeUpdate() == 1;
         }
+    }
+
+    private boolean deleteAppointmentWithConnection(int id, Connection con) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(DELETE_APPOINTMENT_SQL)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() == 1;
+        }
+    }
+
+    @FunctionalInterface
+    private interface TransactionAction {
+        void execute(Connection con) throws SQLException;
     }
 }
