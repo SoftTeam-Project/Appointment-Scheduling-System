@@ -57,6 +57,24 @@ public class JdbcSlotRepository implements SlotRepository {
         }
         return Optional.empty();
     }
+    @Override
+    public boolean addSlot(String date, String time, int capacity) {
+        String sql = "INSERT INTO appointment_slots(slot_date, slot_time, capacity, booked_count) VALUES (?, ?, ?, 0)";
+
+        try (Connection con = Db.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, date);
+            ps.setString(2, time);
+            ps.setInt(3, capacity);
+
+            return ps.executeUpdate() == 1;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
     @Override
     public boolean incrementBookedCount(int slotId) {

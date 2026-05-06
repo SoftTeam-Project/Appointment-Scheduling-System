@@ -33,9 +33,14 @@ public class JdbcUserRepository implements UserRepository {
             throw new RuntimeException("DB query failed", e);
         }
     }
+    
     @Override
     public boolean addUser(String username, String password, String role) {
-    	 String sql = "INSERT INTO users(username, password, role, email) VALUES (?, ?, ?, ?)";
+        return addUser(username, password, role, "");
+    }
+    @Override
+    public boolean addUser(String username, String password, String role, String email) {
+        String sql = "INSERT INTO users(username, password, role, email) VALUES (?, ?, ?, ?)";
 
         try (Connection con = Db.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -43,10 +48,12 @@ public class JdbcUserRepository implements UserRepository {
             ps.setString(1, username);
             ps.setString(2, password);
             ps.setString(3, role);
-            ps.setString(4, "");
+            ps.setString(4, email);
+
             return ps.executeUpdate() == 1;
 
         } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
     }

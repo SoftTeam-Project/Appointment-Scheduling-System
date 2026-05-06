@@ -14,4 +14,7 @@ public class SlotService {
     public List<AppointmentSlot> viewAvailableSlots() {
         return repo.findAvailableSlots();
     }
+    public boolean addSlot(String date, String time, int capacity) {
+        return repo.addSlot(date, time, capacity);
+    }
 }
